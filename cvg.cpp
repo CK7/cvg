@@ -1,7 +1,8 @@
 //================================================================================================================
 // Name        : cvg.cpp
 // Author      : Itai Sharon
-// Version     : 1.01, 07/May/2013
+// Version     : 1.02, 16/June/2014:	bug fix - alternative mappings are now identified through flag and not name
+//             : 1.01, 07/May/2013:	preliminary
 // Description : Reports the length, %G+C and coverage for each sequence in the input fasta file. 
 //             : Output format is 
 //             : <scaf-name>	<size>	<%G+C>	<coverage>	<# of Ns>
@@ -37,7 +38,7 @@ protected:
 int main(int argc, const char* argv[])
 {
 	if(argc < 3) {
-		cerr << endl << "Usage: " << argv[0] << "[-s <max-num-snps>] <fasta-file> <.sam file1> ... <.sam filen>" << endl << endl;
+		cerr << endl << "Usage: " << argv[0] << " [-s <max-num-snps>] <fasta-file> <.sam file1> ... <.sam filen>" << endl << endl;
 		return -1;
 	}
 	string assembly_file;
@@ -79,7 +80,6 @@ int main(int argc, const char* argv[])
 		print_percent(0, 0);
 
 		Bio::SAMReader	reader(sam_file);
-		set<string>	seen_reads;
 		size_t		num_read = 0;
 		size_t		percent_read = 0;
 
@@ -91,17 +91,12 @@ int main(int argc, const char* argv[])
 			}
 			
 			Bio::ReadMappingPtr mapping(reader.next_mapping());
-			if(mapping->read_name() == Bio::SAMReader::end().read_name()) {
+			if(mapping == NULL) {
 				break;
 			}
-			if(mapping->unmapped() || (mapping->num_snps() > max_snps)) {
+			if(mapping->unmapped() || (mapping->num_snps() > max_snps) || mapping->multiple_hits()) {
 				continue;
 			}
-			// If multiple mappings exist we'll take the first one only
-			if(seen_reads.find(mapping->read_name()) != seen_reads.end()) {
-				continue;
-			}
-			seen_reads.insert(mapping->read_name());
 			scaf_stats[mapping->ref_name()] += mapping->read_length();
 		}
 		print_percent(percent_read, 100);
